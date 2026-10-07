@@ -21,8 +21,9 @@ overrides: {}
 
 tasksPerWeek: { min: 5, max: 7 }
 
-# Used only for weekdays the portal template (Bericht-Vorlage) does not define.
-defaultDay: { from: "08:30", to: "16:30", break: 30 }
+# Net working hours per practice day plus break. The start drifts by up to 30 min and the
+# end follows, so each day nets roughly `hours` (sometimes 15 min less or up to 30 min more).
+workday: { start: "08:30", hours: 8, break: 30 }
 
 # Mark Bavarian public holidays inside practice weeks as "Feiertag".
 holidays: true

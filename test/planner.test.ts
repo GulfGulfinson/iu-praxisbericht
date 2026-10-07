@@ -14,16 +14,11 @@ const cal: CalendarData = {
   workDays,
   examDays: [],
   calendarWeekInfo: [{ calendar_week: '41', is_submitted: '1' }],
-  template: { active: '1', days: [
-    { from: '08:30', to: '16:00', break: '30', workday: 'true' },
-    { from: '08:30', to: '16:00', break: '30', workday: 'true' },
-    { from: '08:30', to: '15:00', break: '30', workday: 'true' },
-    ...Array.from({ length: 4 }, () => ({ from: '', to: '', break: '', workday: 'false' })),
-  ] },
 };
 
 const config = parseConfig({
   seed: 'test',
+  workday: { start: '08:30', hours: 8, break: 30 },
   vacationDays: 6,
   sickDays: 2,
   tasks: ['Bearbeitung von Tickets', { name: 'Bugfix', weight: 3, variants: ['Bugfix im Backend', 'Bugfix im Frontend'] }, 'Code Review', 'Dokumentation', 'Deployment', 'Tests schreiben', { name: 'Monthly Meeting', cadence: 'monthly' }, { name: 'Daily Standup', cadence: 'weekly' }],
@@ -78,14 +73,17 @@ describe('planSemester', () => {
     expect(monthly.length).toBe(4);
   });
 
-  it('varies working times around the template and sums minutes correctly', () => {
+  it('varies start times but keeps roughly the configured net hours and break', () => {
     const p = plan();
     const work = p.flatMap((w) => w.days).filter((d) => d.workday && d.special === 0);
     expect(new Set(work.map((d) => `${d.from}-${d.to}`)).size).toBeGreaterThan(3);
     for (const d of work) {
       const [fh, fm] = d.from.split(':').map(Number); const [th, tm] = d.to.split(':').map(Number);
       expect(d.minutes).toBe(th! * 60 + tm! - (fh! * 60 + fm!) - Number(d.break));
-      expect(d.minutes).toBeGreaterThan(300);
+      expect(d.break).toBe('30');
+      expect(d.minutes).toBeGreaterThanOrEqual(8 * 60 - 15);
+      expect(d.minutes).toBeLessThanOrEqual(8 * 60 + 30);
+      expect(d.from >= '08:00' && d.from <= '09:00').toBe(true);
     }
     for (const w of p) expect(w.totalMinutes).toBe(w.days.reduce((s, d) => s + d.minutes, 0));
   });

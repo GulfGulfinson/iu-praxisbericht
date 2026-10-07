@@ -11,7 +11,7 @@ with randomised but plausible working times, task mixes, vacation, sick days and
 - The **Studienjahresablaufplan is taken from the portal**: each semester's `workDays` already
   contain only practice days, so theory and exam weeks are never touched.
 - Only weeks whose practice days are over are filled; weeks already submitted are skipped.
-- Per week: times jittered around your portal template (Bericht-Vorlage), 5 to 7 bullet points
+- Per week: start times jittered around `workday.start` with net hours kept near `workday.hours`, 5 to 7 bullet points
   drawn from your task list by weight, a 3 to 5 rating. Weekly tasks appear in every report,
   monthly ones in the first report of each month.
 - Vacation and sick days are placed on practice days (vacation in 1 to 5 day blocks, sick in 1 to

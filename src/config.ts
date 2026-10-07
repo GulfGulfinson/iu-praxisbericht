@@ -32,7 +32,9 @@ export const configSchema = z
     sickDates: z.array(isoDate).default([]),
     overrides: z.record(z.string(), z.object(absences)).default({}),
     tasksPerWeek: z.object({ min: z.number().int().min(5), max: z.number().int() }).default({ min: 5, max: 7 }),
-    defaultDay: z.object({ from: time, to: time, break: z.number().int().min(0) }).default({ from: '08:30', to: '16:30', break: 30 }),
+    workday: z
+      .object({ start: time, hours: z.number().positive().max(10), break: z.number().int().min(0) })
+      .default({ start: '08:30', hours: 8, break: 30 }),
     holidays: z.boolean().default(true),
     tasks: z.array(task),
   })

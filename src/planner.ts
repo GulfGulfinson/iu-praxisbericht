@@ -1,5 +1,5 @@
 import { absencesFor, type Config } from './config.ts';
-import { addDays, isoWeek, mondayOf, weekdayIndex } from './dates.ts';
+import { addDays, isoWeek, mondayOf } from './dates.ts';
 import { bavarianHolidays } from './holidays.ts';
 import { calendarSchema, type CalendarData } from './portal-types.ts';
 import { createRng, pick, randInt, type Rng, shuffle, weightedSample } from './rng.ts';
@@ -35,8 +35,10 @@ const toMinutes = (hhmm: string): number => {
 };
 const fromMinutes = (min: number): string => `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
 
-// Most days start and end on the template time; occasional quarter-hour drift looks like a real log.
-const JITTER = [-30, -15, 0, 0, 0, 0, 15, 15, 30];
+// Start drifts by up to half an hour; the end follows so net hours stay close to the contract,
+// with the occasional quarter hour more or less like a real log.
+const START_JITTER = [-30, -15, 0, 0, 0, 0, 15, 15, 30];
+const LENGTH_JITTER = [-15, 0, 0, 0, 0, 0, 15, 15, 30];
 
 interface PracticeWeek {
   monday: string;
@@ -91,17 +93,14 @@ const placeAbsences = (
   if (placed < count) throw new Error(`Could only place ${placed} of ${count} ${label} days: not enough practice days left in the open weeks`);
 };
 
-const workingDay = (rng: Rng, date: string, cal: CalendarData, config: Config): DayPlan => {
-  const t = cal.template?.days[weekdayIndex(date)];
-  const base = t && t.workday === 'true' && t.from && t.to
-    ? { from: t.from, to: t.to, break: Number(t.break) || 30 }
-    : config.defaultDay;
-  const from = toMinutes(base.from) + pick(rng, JITTER);
-  const to = toMinutes(base.to) + pick(rng, JITTER);
-  const gross = to - from;
-  // German law: 30 min break above 6 h, 45 min above 9 h; sometimes people take longer anyway.
-  const brk = gross - 30 > 9 * 60 ? 45 : rng() < 0.2 ? 45 : Math.max(base.break, 30);
-  return { date, workday: true, special: SPECIAL.none, from: fromMinutes(from), to: fromMinutes(to), break: String(brk), minutes: gross - brk };
+const workingDay = (rng: Rng, date: string, config: Config): DayPlan => {
+  const { start, hours, break: configuredBreak } = config.workday;
+  const net = Math.round(hours * 60) + pick(rng, LENGTH_JITTER);
+  // German law: at least 45 min break above 9 h of work.
+  const brk = net > 9 * 60 ? Math.max(configuredBreak, 45) : configuredBreak;
+  const from = toMinutes(start) + pick(rng, START_JITTER);
+  const to = from + net + brk;
+  return { date, workday: true, special: SPECIAL.none, from: fromMinutes(from), to: fromMinutes(to), break: String(brk), minutes: net };
 };
 
 const offDay = (date: string, reason: DayPlan['reason']): DayPlan => ({
@@ -153,7 +152,7 @@ export const planSemester = (calendar: CalendarData, config: Config, today: stri
       if (!practice.has(date)) return { date, workday: false, special: SPECIAL.none, from: '', to: '', break: '', minutes: 0 };
       if (holidays.has(date)) return offDay(date, 'holiday');
       const reason = absent.get(date);
-      return reason ? offDay(date, reason) : workingDay(rng, date, cal, config);
+      return reason ? offDay(date, reason) : workingDay(rng, date, config);
     });
     const month = w.practiceDays[0]?.slice(0, 7) ?? '';
     const includeMonthly = !monthsWithMeeting.has(month);
