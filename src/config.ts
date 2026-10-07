@@ -33,8 +33,14 @@ export const configSchema = z
     overrides: z.record(z.string(), z.object(absences)).default({}),
     tasksPerWeek: z.object({ min: z.number().int().min(5), max: z.number().int() }).default({ min: 5, max: 7 }),
     workday: z
-      .object({ start: time, hours: z.number().positive().max(10), break: z.number().int().min(0) })
-      .default({ start: '08:30', hours: 8, break: 30 }),
+      .object({
+        start: time,
+        break: z.number().int().min(0).default(30),
+        // Part-time weeks (Mon-Wed, during theory phases) have a weekly quota; full-time weeks a daily one.
+        partTimeWeekHours: z.number().positive().max(40).default(20),
+        fullTimeDayHours: z.number().positive().max(10).default(8),
+      })
+      .default({ start: '08:30', break: 30, partTimeWeekHours: 20, fullTimeDayHours: 8 }),
     holidays: z.boolean().default(true),
     tasks: z.array(task),
   })

@@ -1,12 +1,14 @@
 import { describe, expect, it } from 'vitest';
 import { parseConfig } from '../src/config.ts';
-import { planSemester } from '../src/planner.ts';
+import { planSemester, type WeekPlan } from '../src/planner.ts';
 import type { CalendarData } from '../src/portal-types.ts';
 
 const weeks = ['2026-10-05', '2026-10-12', '2026-10-19', '2026-10-26', '2026-11-02', '2026-11-09', '2026-11-16', '2026-11-23', '2026-12-14', '2026-12-21', '2026-12-28', '2027-01-04', '2027-01-11'];
-const workDays = weeks.flatMap((m) => [0, 1, 2].map((i) => {
-  const d = new Date(`${m}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + i); return d.toISOString().slice(0, 10);
-}));
+const daysFrom = (monday: string, n: number) => Array.from({ length: n }, (_, i) => {
+  const d = new Date(`${monday}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + i); return d.toISOString().slice(0, 10);
+});
+// Part-time weeks (Mon-Wed) plus one full-time week (Mon-Fri), like the real calendars.
+const workDays = [...weeks.flatMap((m) => daysFrom(m, 3)), ...daysFrom('2027-01-18', 5)];
 
 const cal: CalendarData = {
   id: '652',
@@ -18,19 +20,19 @@ const cal: CalendarData = {
 
 const config = parseConfig({
   seed: 'test',
-  workday: { start: '08:30', hours: 8, break: 30 },
+  workday: { start: '08:30', break: 30, partTimeWeekHours: 20, fullTimeDayHours: 8 },
   vacationDays: 6,
   sickDays: 2,
   tasks: ['Bearbeitung von Tickets', { name: 'Bugfix', weight: 3, variants: ['Bugfix im Backend', 'Bugfix im Frontend'] }, 'Code Review', 'Dokumentation', 'Deployment', 'Tests schreiben', { name: 'Monthly Meeting', cadence: 'monthly' }, { name: 'Daily Standup', cadence: 'weekly' }],
 });
 
-const today = '2027-01-20';
+const today = '2027-01-25';
 const plan = () => planSemester(cal, config, today);
 
 describe('planSemester', () => {
   it('plans every practice week up to today except submitted ones', () => {
     const p = plan();
-    expect(p.map((w) => w.week)).toEqual([42, 43, 44, 45, 46, 47, 48, 51, 52, 53, 1, 2]);
+    expect(p.map((w) => w.week)).toEqual([42, 43, 44, 45, 46, 47, 48, 51, 52, 53, 1, 2, 3]);
   });
 
   it('skips weeks whose practice days are not over yet', () => {
@@ -73,16 +75,34 @@ describe('planSemester', () => {
     expect(monthly.length).toBe(4);
   });
 
-  it('varies start times but keeps roughly the configured net hours and break', () => {
+  const worked = (w: WeekPlan) => w.days.filter((d) => d.workday && d.special === 0);
+
+  it('works 20h in a full part-time week, split around 6:40 per day', () => {
+    const p = plan().filter((w) => w.week !== 3);
+    for (const d of p.flatMap(worked)) {
+      expect(d.minutes).toBeGreaterThanOrEqual(400 - 30);
+      expect(d.minutes).toBeLessThanOrEqual(400 + 30);
+    }
+    const full = p.filter((w) => worked(w).length === 3);
+    expect(full.length).toBeGreaterThan(3);
+    for (const w of full) expect(w.totalMinutes).toBe(20 * 60);
+    expect(new Set(p.flatMap(worked).map((d) => d.minutes)).size).toBeGreaterThan(1);
+  });
+
+  it('works exactly 8h per day in full-time weeks', () => {
+    const w = plan().find((x) => x.week === 3);
+    expect(w).toBeDefined();
+    for (const d of worked(w!)) expect(d.minutes).toBe(8 * 60);
+  });
+
+  it('varies start times, keeps the break and sums minutes correctly', () => {
     const p = plan();
-    const work = p.flatMap((w) => w.days).filter((d) => d.workday && d.special === 0);
-    expect(new Set(work.map((d) => `${d.from}-${d.to}`)).size).toBeGreaterThan(3);
+    const work = p.flatMap(worked);
+    expect(new Set(work.map((d) => d.from)).size).toBeGreaterThan(2);
     for (const d of work) {
       const [fh, fm] = d.from.split(':').map(Number); const [th, tm] = d.to.split(':').map(Number);
       expect(d.minutes).toBe(th! * 60 + tm! - (fh! * 60 + fm!) - Number(d.break));
       expect(d.break).toBe('30');
-      expect(d.minutes).toBeGreaterThanOrEqual(8 * 60 - 15);
-      expect(d.minutes).toBeLessThanOrEqual(8 * 60 + 30);
       expect(d.from >= '08:00' && d.from <= '09:00').toBe(true);
     }
     for (const w of p) expect(w.totalMinutes).toBe(w.days.reduce((s, d) => s + d.minutes, 0));

@@ -21,9 +21,10 @@ overrides: {}
 
 tasksPerWeek: { min: 5, max: 7 }
 
-# Net working hours per practice day plus break. The start drifts by up to 30 min and the
-# end follows, so each day nets roughly `hours` (sometimes 15 min less or up to 30 min more).
-workday: { start: "08:30", hours: 8, break: 30 }
+# Working time. Weeks with 4+ practice days are full-time: exactly fullTimeDayHours per day.
+# Other weeks (Mon-Wed) are part-time: partTimeWeekHours spread over 3 days (20h = ~6:40/day,
+# e.g. 6:45/6:45/6:30). The start drifts by up to 30 min; the end follows plus the break.
+workday: { start: "08:30", break: 30, partTimeWeekHours: 20, fullTimeDayHours: 8 }
 
 # Mark Bavarian public holidays inside practice weeks as "Feiertag".
 holidays: true
