@@ -1,0 +1,59 @@
+# Copy to config.yaml (gitignored) and adjust.
+
+# Same seed + same portal data = same plan. Change it to reroll everything.
+seed: praxisbericht
+
+# Semester ids (calid) from the semester switcher. Omit to fill every semester.
+# semesters: [648, 649, 650, 651, 652]
+
+# Absences per semester, placed randomly on practice days (vacation in blocks of 1-5 days,
+# sick in blocks of 1-2). Both are entered as "Abwesenheit"; the portal has no separate type.
+vacationDays: 10
+sickDays: 2
+
+# Fixed dates are used first and count towards the numbers above.
+vacationDates: []
+sickDates: []
+
+# Per-semester numbers, keyed by calid.
+overrides: {}
+#   "652": { vacationDays: 5, sickDays: 0 }
+
+tasksPerWeek: { min: 5, max: 7 }
+
+# Used only for weekdays the portal template (Bericht-Vorlage) does not define.
+defaultDay: { from: "08:30", to: "16:30", break: 30 }
+
+# Mark Bavarian public holidays inside practice weeks as "Feiertag".
+holidays: true
+
+# A task is a plain string or { name, weight, variants, cadence }.
+#   weight:   relative probability per week (default 1)
+#   variants: alternative wordings, one is picked each time
+#   cadence:  random (default) | weekly (every report) | monthly (first report of each month)
+tasks:
+  - name: Bugfix
+    weight: 3
+    variants:
+      - Bugfixes im Backend
+      - Analyse und Behebung von Fehlern aus dem Ticketsystem
+      - Bugfix nach Kundenmeldung
+  - name: Code Review
+    weight: 2
+    variants: [Code Reviews für Merge Requests im Team, Review von Merge Requests]
+  - name: Feature-Entwicklung
+    weight: 3
+    variants: [Implementierung neuer Features, Weiterentwicklung bestehender Module]
+  - name: Tests
+    weight: 2
+    variants: [Schreiben von Unit-Tests, Erweiterung der Testabdeckung]
+  - Dokumentation im internen Wiki
+  - Pflege der CI-Pipeline
+  - Abstimmung mit Kollegen zu technischen Fragen
+  - Recherche zu neuen Technologien
+  - name: Daily
+    cadence: weekly
+    variants: [Teilnahme an Team-Meetings]
+  - name: Monthly Meeting
+    cadence: monthly
+    variants: [Teilnahme am Monthly Meeting]
